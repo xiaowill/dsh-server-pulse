@@ -1,9 +1,16 @@
 {
   "name": "dsh-server-monitor",
-  "version": "1.1.0-beta.1",
+  "version": "1.2.0-beta.1",
   "license": "MIT",
-  "engines": { "dsh": "0.2.2-rc.5" },
-  "keywords": ["dsh-plugin", "server-monitor", "ssh", "linux"],
+  "engines": {
+    "dsh": "0.2.2-rc.5"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "server-monitor",
+    "ssh",
+    "linux"
+  ],
   "type": "module",
   "description": "Read-only real-time Linux server metrics panel with a left sidebar entry.",
   "icon": "icon.svg",
@@ -13,13 +20,42 @@
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg"
   },
-  "files": ["index.js", "client.js", "cordis.patch.yml", "locale/*.json", "icon.svg", "README.md", "docs/monitoring-dashboard-research.md"],
+  "files": [
+    "index.js",
+    "client.js",
+    "host/*.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "README.en.md",
+    "CHANGELOG.md",
+    "docs/*.md",
+    "docs/assets/*.png"
+  ],
   "dsh": {
-    "bundle": { "patch": "./cordis.patch.yml" },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
     "client": {
       "platform": "web",
       "immediately": true,
-      "inject": ["@deepseek-ai/dsh-client-locale", "@deepseek-ai/dsh-client-ui-layout"]
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-layout"
+      ]
     }
+  },
+  "homepage": "https://github.com/xiaowill/dsh-server-monitor#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xiaowill/dsh-server-monitor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/xiaowill/dsh-server-monitor/issues"
+  },
+  "scripts": {
+    "check": "node --check index.js && node --check client.js && node --check host/collector.js && node --check host/ssh.js && node --check host/targets.js",
+    "test": "node --test"
   }
 }

@@ -14,6 +14,11 @@ window.__ModuleLoader__.load({
         host: server.example.com
         user: your-user
         keyPath: ~/.ssh/id_ed25519`;
+    const EXAMPLE_REMOTE_SSH = `- id: server-monitor
+  config:
+    targets:
+      - id: example
+        remoteSshProfile: My Linux server`;
     const PANEL_ID = "server-monitor";
     const PANEL_ORDER = 40;
     const POLL_MS = 3000;
@@ -21,8 +26,14 @@ window.__ModuleLoader__.load({
 
     //#region dictionaries
     const zh = {
+      "setup.remote": "已使用 Remote SSH？引用已有连接",
+      "setup.remoteDetails": "在同一个 DSH profile 安装 Remote SSH 后，把示例里的 My Linux server 换成远程连接的名称或 ID。",
+      "ssh.remote-missing": "找不到对应的 Remote SSH 连接。确认插件在当前 profile 已启用，且名称或 ID 一致。",
+      "ssh.remote-ambiguous": "有多个同名的 Remote SSH 连接。请在监控配置里改用连接 ID。",
+      "ssh.remote-auth": "此 Remote SSH 连接使用密码。请在 Remote SSH 中改用密钥认证后再采集。",
+      "ssh.remote-invalid": "Remote SSH 连接参数不完整或格式不正确。请核对主机、账号、端口、密钥路径和跳板机。",
       "setup.title": "添加服务器",
-      "setup.config": "把下面的配置加入当前 DSH profile 的 cordis.patch.yml，替换成你自己的 SSH 主机、账号和密钥路径。",
+      "setup.config": "把下面的配置加入当前 DSH profile 的 cordis.patch.yml，替换成你自己的 SSH 主机、账号和密钥路径。如果文件只有 []，请用示例替换它。",
       "setup.trust": "先在终端用 SSH 连接一次并核对主机指纹。保存配置后点「刷新」，再点「测试 SSH」。",
       "setup.services": "尚未配置监控服务。在这台主机的 services 下填写服务地址后即可探测。",
       "action.sshTest": "测试 SSH",
@@ -154,8 +165,14 @@ window.__ModuleLoader__.load({
       "label.health": "整体状态",
     };
     const en = {
+      "setup.remote": "Already using Remote SSH? Link a saved connection",
+      "setup.remoteDetails": "With Remote SSH installed in this DSH profile, replace My Linux server with your connection name or ID.",
+      "ssh.remote-missing": "Remote SSH connection not found. Enable the plugin in this profile and check the name or ID.",
+      "ssh.remote-ambiguous": "Several Remote SSH connections share this name. Use the connection ID in monitor settings.",
+      "ssh.remote-auth": "This Remote SSH connection uses a password. Switch it to key authentication before monitoring.",
+      "ssh.remote-invalid": "Review the Remote SSH host, username, port, identity path, and jump host.",
       "setup.title": "Add a server",
-      "setup.config": "Add this example to cordis.patch.yml in the active DSH profile and replace the SSH host, user, and key path.",
+      "setup.config": "Add this example to cordis.patch.yml in the active DSH profile and replace the SSH host, user, and key path. If the file only contains [], replace it with the example.",
       "setup.trust": "Connect once in a terminal and verify the SSH host fingerprint. Save the configuration, refresh, then select Test SSH.",
       "setup.services": "No monitoring services configured. Add service URLs under this host’s services mapping to probe them.",
       "action.sshTest": "Test SSH",
@@ -729,8 +746,8 @@ window.__ModuleLoader__.load({
           },
             h("span", { className: "smx-healthLed", "data-s": host.status, "aria-hidden": "true" }),
             h("div", { className: "smx-healthMeta" },
-              h("div", { className: "smx-healthName" }, host.data?.hostname || host.id),
-              h("div", { className: "smx-healthSub smx-mono" }, host.host)),
+              h("div", { className: "smx-healthName" }, host.label),
+              h("div", { className: "smx-healthSub smx-mono" }, host.host, host.source === "remote-ssh" ? " · Remote SSH" : null)),
             h("div", { className: "smx-healthInfo" },
               h("strong", null, tt(active ? "label.sshOnline" : "status.offline")),
               active ? h("span", null, tt("health.svcUp", { n: serviceCount }) + " · " + tt("alert.count", { n: hostAlerts.length })) : null,
@@ -751,7 +768,7 @@ window.__ModuleLoader__.load({
           h("span", { className: "smx-pill" }, tt(auto ? "label.live" : "label.paused")),
           selectedAt ? h("span", null, tt("label.sample") + " ", h("strong", null, fmtClock(selectedAt))) : null,
           snap && !online ? h("span", null, tt("label.lastAttempt") + " " + fmtClock(snap.sampledAt)) : null,
-          snap ? h("span", null, tt("label.latency") + " " + snap.latencyMs + " ms") : null,
+          Number.isFinite(snap?.latencyMs) ? h("span", null, tt("label.latency") + " " + snap.latencyMs + " ms") : null,
           d ? h("span", null, tt("label.uptime") + " " + fmtUptime(d.uptimeSec)) : null) : null);
       const navigation = h("nav", { className: "smx-nav", "aria-label": tt("panel.title") },
         views.map(([id, label]) => h("button", { type: "button", key: id, "aria-pressed": id === view, onClick: () => setView(id) }, tt(label))));
@@ -762,14 +779,18 @@ window.__ModuleLoader__.load({
           h("h2", null, tt("setup.title")),
           h("p", null, tt("setup.config")),
           h("pre", null, EXAMPLE_CONFIG),
-          h("p", { className: "smx-muted" }, tt("setup.trust")));
+          h("p", { className: "smx-muted" }, tt("setup.trust")),
+          h("details", null,
+            h("summary", null, tt("setup.remote")),
+            h("p", { className: "smx-muted" }, tt("setup.remoteDetails")),
+            h("pre", null, EXAMPLE_REMOTE_SSH)));
       } else if (!snap) {
         body = h("div", { className: "smx-empty" },
           h("div", { className: "smx-banner", "data-kind": "error", style: { maxWidth: 560 } }, h("strong", null, tt("error.title") + ": "), error || tt("empty.noData")),
           h("div", { className: "smx-muted" }, tt("hint.offline")));
       } else if (!online && !d) {
         body = h("div", { className: "smx-empty" },
-          h("div", { className: "smx-banner", "data-kind": "error", style: { maxWidth: 620 } }, h("strong", null, tt("empty.offline") + ": "), snap.error || tt("empty.noData")),
+          h("div", { className: "smx-banner", "data-kind": "error", style: { maxWidth: 620 } }, h("strong", null, tt("empty.offline")), snap.error),
           h("div", { className: "smx-muted" }, tt("ssh." + snap.reason)));
       } else {
         const disks = d.disks || [];
