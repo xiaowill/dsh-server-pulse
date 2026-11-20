@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Server Monitor",
+    "description": "Live read-only metrics (CPU, memory, load, disks, network, top processes) for Linux servers sampled over SSH, shown in a left-sidebar panel."
+  }
+}
