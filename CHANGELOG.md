@@ -1,5 +1,12 @@
 # 更新日志
 
+## 1.3.0-beta.1 · 2026-11-21
+
+- 聚焦服务器监控。用本机 OpenSSH Host 别名替代 Remote SSH 插件连接引用，支持从面板选择别名并生成监控配置。
+- 自动识别目标机常见端口上的 Grafana、Prometheus、Kuma 和 node_exporter。新增 Grafana 版本和数据库状态、Prometheus 版本以及 Kuma 公开状态页监控表。
+- 更新双语首页、示例截图、安装指南和架构图。通过 GitHub URL 可直接安装。
+
+
 ## 1.2.0-beta.1 · 2026-11-21
 
 - 支持用 `remoteSshProfile` 引用同一个 DSH profile 中保存的 Remote SSH 密钥连接，包含自定义端口和 ProxyJump。

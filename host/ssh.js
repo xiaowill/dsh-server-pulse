@@ -13,9 +13,9 @@ export function runSsh(target, cfg, command, script) {
       "-o", "ForwardAgent=no",
       "-o", `ConnectTimeout=${connectSec}`,
       "-o", "ControlPath=none",
-      ...(target.proxyJump ? ["-J", target.proxyJump] : []),
-      "-p", String(target.port),
-      "-l", target.user,
+      "-o", "RequestTTY=no",
+      "-o", "RemoteCommand=none",
+      ...(target.sshHost ? [] : ["-p", String(target.port), "-l", target.user]),
       "--", target.host,
       command,
     ];

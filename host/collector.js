@@ -1,4 +1,4 @@
-import { SERVICE_NAMES } from "./targets.js";
+import { SERVICE_NAMES, SERVICE_SCRIPT, readServiceDetails } from "./services.js";
 import { REQUIRE_LINUX, runSsh, sshFailure } from "./ssh.js";
 
 /**
@@ -44,41 +44,7 @@ echo @@GPU
 if command -v nvidia-smi >/dev/null 2>&1; then timeout 2 nvidia-smi --query-gpu=index,name,utilization.gpu,memory.used,memory.total --format=csv,noheader,nounits 2>/dev/null | head -8; fi
 echo @@DOCKER
 if command -v docker >/dev/null 2>&1; then timeout 3 docker stats --no-stream --format '{{.Name}} | {{.CPUPerc}} | {{.MemUsage}}' 2>/dev/null | head -8; fi
-echo @@SERVICES
-if [ "$#" -gt 0 ] && command -v curl >/dev/null 2>&1; then
-  probe() {
-    local result code elapsed
-    if result=$(curl -q --globoff -fs -m 1 -o /dev/null -w '%{http_code} %{time_total}' -- "$2") && [[ $result == '200 '* ]]; then
-      read -r code elapsed <<< "$result"
-      echo "$1 up $elapsed"
-    else
-      echo "$1 down"
-      return 1
-    fi
-  }
-  prom_url=
-  while [ "$#" -gt 0 ]; do
-    name=$1
-    base=$2
-    shift 2
-    case "$name" in
-      grafana) (probe "$name" "$base/api/health") & ;;
-      uptime-kuma) (probe "$name" "$base/api/entry-page") & ;;
-      node-exporter) (probe "$name" "$base/metrics") & ;;
-      prometheus)
-        if probe "$name" "$base/-/ready"; then prom_url=$base; fi
-        ;;
-    esac
-  done
-  wait
-  echo @@PROM_TARGETS
-  if [ -n "$prom_url" ]; then
-    if response=$(curl -q --globoff -fs -m 2 -w '\n%{http_code} %{content_type}' -- "$prom_url/api/v1/targets?state=active") &&
-      [[ $(tail -n 1 <<< "$response") == '200 application/json'* ]]; then
-      sed '$d' <<< "$response"
-    fi
-  fi
-fi
+${SERVICE_SCRIPT}
 echo @@END
 `;
 
@@ -306,48 +272,26 @@ function parseDocker(lines) {
   return out.sort((a, b) => b.cpuPct - a.cpuPct).slice(0, 8);
 }
 
-function parseServices(lines) {
-  const services = {};
-  for (const line of lines) {
-    const [name, status, elapsed] = line.trim().split(/\s+/);
-    if (!SERVICE_NAMES.has(name) || (status !== "up" && status !== "down")) continue;
-    services[name] = { status, latencyMs: status === "up" ? Number(elapsed) * 1000 : null };
-  }
-  return services;
-}
-
-function parsePromTargets(section) {
-  const json = section?.join("\n").trim();
-  if (!json) return null;
-  const { data } = JSON.parse(json);
-  const targets = data.activeTargets.map((target) => ({
-    job: target.labels.job,
-    instance: target.labels.instance,
-    health: target.health,
-    lastScrape: target.lastScrape,
-    durationMs: target.lastScrapeDuration * 1000,
-    lastError: target.lastError,
-  }));
-  const summary = { up: 0, down: 0, other: 0 };
-  for (const target of targets) {
-    summary[target.health === "up" || target.health === "down" ? target.health : "other"]++;
-  }
-  return { ...summary, targets };
-}
-
 export async function collectSnapshot(target, cfg, previous) {
   const startedAt = Date.now();
   try {
     // OpenSSH sends a single remote command string. Quote each configured URL as one shell argument.
-    const serviceArgs = target.services.flatMap(({ name, url }) => [name, "'" + url.replaceAll("'", "'\\''") + "'"]);
+    const configured = new Map(target.services.map((service) => [service.name, service]));
+    const serviceArgs = [...SERVICE_NAMES].flatMap((name) => {
+      const service = configured.get(name);
+      return [name, service?.url ?? "", service?.statusPage ?? "default"];
+    }).map((value) => "'" + value.replaceAll("'", "'\\''") + "'");
     const raw = await runSsh(target, cfg, ["bash -s --", ...serviceArgs].join(" "), REMOTE_SCRIPT);
     const data = buildSnapshot(parseSections(raw));
-    data.services = target.services.map((service) => ({
-      ...service,
-      status: "unknown",
-      latencyMs: null,
-      ...data.services[service.name],
-    }));
+    data.services = [...SERVICE_NAMES].flatMap((name) => {
+      const service = configured.get(name);
+      const result = data.services[name];
+      if (!service && !result) return [];
+      return [{
+        name, url: service?.url, link: service?.link, statusPage: service?.statusPage,
+        status: "unknown", latencyMs: null, ...result,
+      }];
+    });
     return {
       id: target.id,
       label: target.label,
@@ -521,8 +465,7 @@ export function buildSnapshot(sec) {
     gpu: parseGpu(sec.GPU || []),
     docker: parseDocker(sec.DOCKER || []),
     failedUnits: (sec.FAILED || []).map((s) => s.trim()).filter(Boolean).slice(0, 8),
-    services: parseServices(sec.SERVICES || []),
-    prometheus: parsePromTargets(sec.PROM_TARGETS),
+    ...readServiceDetails(sec),
     users: Number(firstLine(sec.WHO)) || 0,
   };
 }

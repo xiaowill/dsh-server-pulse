@@ -1,6 +1,6 @@
 {
   "name": "dsh-server-monitor",
-  "version": "1.2.0-beta.1",
+  "version": "1.3.0-beta.1",
   "license": "MIT",
   "engines": {
     "dsh": "0.2.2-rc.5"
@@ -55,7 +55,7 @@
     "url": "https://github.com/xiaowill/dsh-server-monitor/issues"
   },
   "scripts": {
-    "check": "node --check index.js && node --check client.js && node --check host/collector.js && node --check host/ssh.js && node --check host/targets.js",
+    "check": "node --check index.js && node --check client.js && node --check host/collector.js && node --check host/ssh.js && node --check host/targets.js && node --check host/ssh-config.js && node --check host/services.js",
     "test": "node --test"
   }
 }

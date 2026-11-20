@@ -23,3 +23,8 @@
 2. 将活跃告警放在资源摘要上方，保留严重度顺序。磁盘仪表与告警使用同一组阈值。调研时两处起点分别为 75% 和 80%，恰好 90% 也存在边界差异。
 3. 使用真实采样时间表达趋势间隔。面板保留上次成功数据时，明确标示历史快照，并区分成功采集时间与最近尝试时间。调研时失败分支更新 `sampledAt`，当时的历史只保存成功采样，最后一个点对应上次成功快照。此次在快照中单独记录该时间。
 4. 用文字或形状补充颜色表达状态，键盘选中和聚焦应清晰可见。资源明细使用有表头的原生表格，窄屏允许在表格区域横向滚动。[WCAG 2.2 色彩使用](https://www.w3.org/WAI/WCAG22/Understanding/use-of-color.html) · [WCAG 2.2 非文本对比度](https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast)
+
+
+## 现有服务的数据来源
+
+Grafana 的健康接口提供版本和数据库状态。Prometheus 的 HTTP API 提供版本和抓取目标，Kuma 的状态页路由提供公开监控列表、心跳和 24 小时可用率。面板从这些接口读取数据，服务探测仍用于显示端点可达性。[Grafana](https://grafana.com/docs/grafana/latest/developer-resources/api-reference/http-api/api-legacy/other/#health-api) · [Prometheus](https://prometheus.io/docs/prometheus/latest/querying/api/) · [Kuma 路由源码](https://github.com/louislam/uptime-kuma/blob/master/server/routers/status-page-router.js)

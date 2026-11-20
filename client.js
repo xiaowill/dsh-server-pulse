@@ -7,18 +7,6 @@ window.__ModuleLoader__.load({
 
     const NS = "server-monitor";
     const API = "api/server-monitor";
-    const EXAMPLE_CONFIG = `- id: server-monitor
-  config:
-    targets:
-      - id: example
-        host: server.example.com
-        user: your-user
-        keyPath: ~/.ssh/id_ed25519`;
-    const EXAMPLE_REMOTE_SSH = `- id: server-monitor
-  config:
-    targets:
-      - id: example
-        remoteSshProfile: My Linux server`;
     const PANEL_ID = "server-monitor";
     const PANEL_ORDER = 40;
     const POLL_MS = 3000;
@@ -26,16 +14,23 @@ window.__ModuleLoader__.load({
 
     //#region dictionaries
     const zh = {
-      "setup.remote": "已使用 Remote SSH？引用已有连接",
-      "setup.remoteDetails": "在同一个 DSH profile 安装 Remote SSH 后，把示例里的 My Linux server 换成远程连接的名称或 ID。",
-      "ssh.remote-missing": "找不到对应的 Remote SSH 连接。确认插件在当前 profile 已启用，且名称或 ID 一致。",
-      "ssh.remote-ambiguous": "有多个同名的 Remote SSH 连接。请在监控配置里改用连接 ID。",
-      "ssh.remote-auth": "此 Remote SSH 连接使用密码。请在 Remote SSH 中改用密钥认证后再采集。",
-      "ssh.remote-invalid": "Remote SSH 连接参数不完整或格式不正确。请核对主机、账号、端口、密钥路径和跳板机。",
-      "setup.title": "添加服务器",
-      "setup.config": "把下面的配置加入当前 DSH profile 的 cordis.patch.yml，替换成你自己的 SSH 主机、账号和密钥路径。如果文件只有 []，请用示例替换它。",
+      "setup.hosts": "本机 SSH 主机",
+      "setup.aliasTip": "从本机 OpenSSH 配置选主机。将生成的目标加入当前 DSH profile 的 cordis.patch.yml。已有配置时合并 targets。若文件只有 []，用生成的内容替换它。",
+      "setup.monitored": "已监控",
+      "setup.noAliases": "没有找到可列出的 Host 别名。也可以手动填入你已用 OpenSSH 验证过的名称。",
+      "setup.yaml": "监控配置 YAML",
+      "setup.loadingAliases": "正在读取本机 SSH 配置…",
+      "label.version": "版本",
+      "label.database": "数据库",
+      "label.kumaMonitors": "Kuma 公开监控项",
+      "label.kumaMonitor": "监控项",
+      "label.kumaUptime": "24 小时可用率",
+      "label.kumaPing": "最近响应",
+      "label.pending": "等待检测",
+      "label.maintenance": "维护中",
+      "hint.kumaEmpty": "这个公开状态页还没有监控项。",
       "setup.trust": "先在终端用 SSH 连接一次并核对主机指纹。保存配置后点「刷新」，再点「测试 SSH」。",
-      "setup.services": "尚未配置监控服务。在这台主机的 services 下填写服务地址后即可探测。",
+      "setup.services": "未在常见端口发现监控服务。也可以在这台主机的 services 下配置自定义地址。",
       "action.sshTest": "测试 SSH",
       "action.sshTesting": "正在测试 SSH…",
       "ssh.success": "SSH 和 Linux 采集环境检查通过（{ms} ms）",
@@ -65,7 +60,7 @@ window.__ModuleLoader__.load({
       "label.unknown": "未知",
       "hint.promUnavailable": "当前无法读取 Prometheus 目标列表。",
       "hint.promEmpty": "Prometheus 当前没有活跃抓取目标。",
-      "hint.kuma": "Kuma 此处显示 Web 服务探测。登录 Kuma 可查看各监控项的可用率与响应时间。",
+      "hint.kuma": "Kuma Web 服务可达。开放状态页后，可在 uptime-kuma 的 statusPage 配置中指定 slug 来显示公开监控项。",
       "label.readLatency": "读延迟",
       "label.writeLatency": "写延迟",
       "label.inFlight": "进行中",
@@ -165,16 +160,23 @@ window.__ModuleLoader__.load({
       "label.health": "整体状态",
     };
     const en = {
-      "setup.remote": "Already using Remote SSH? Link a saved connection",
-      "setup.remoteDetails": "With Remote SSH installed in this DSH profile, replace My Linux server with your connection name or ID.",
-      "ssh.remote-missing": "Remote SSH connection not found. Enable the plugin in this profile and check the name or ID.",
-      "ssh.remote-ambiguous": "Several Remote SSH connections share this name. Use the connection ID in monitor settings.",
-      "ssh.remote-auth": "This Remote SSH connection uses a password. Switch it to key authentication before monitoring.",
-      "ssh.remote-invalid": "Review the Remote SSH host, username, port, identity path, and jump host.",
-      "setup.title": "Add a server",
-      "setup.config": "Add this example to cordis.patch.yml in the active DSH profile and replace the SSH host, user, and key path. If the file only contains [], replace it with the example.",
+      "setup.hosts": "Local SSH hosts",
+      "setup.aliasTip": "Select hosts from your local OpenSSH config and merge the generated targets into the current DSH profile’s cordis.patch.yml. Replace [] if the file contains an empty list.",
+      "setup.monitored": "Monitored",
+      "setup.noAliases": "No literal Host aliases were found. You can also enter a name you have already verified with OpenSSH.",
+      "setup.yaml": "Monitoring configuration YAML",
+      "setup.loadingAliases": "Reading local SSH config…",
+      "label.version": "Version",
+      "label.database": "Database",
+      "label.kumaMonitors": "Kuma public monitors",
+      "label.kumaMonitor": "Monitor",
+      "label.kumaUptime": "24h uptime",
+      "label.kumaPing": "Last response",
+      "label.pending": "Pending",
+      "label.maintenance": "Maintenance",
+      "hint.kumaEmpty": "This public status page has no monitors.",
       "setup.trust": "Connect once in a terminal and verify the SSH host fingerprint. Save the configuration, refresh, then select Test SSH.",
-      "setup.services": "No monitoring services configured. Add service URLs under this host’s services mapping to probe them.",
+      "setup.services": "No monitoring services were found on the common ports. Add custom URLs under this host’s services mapping.",
       "action.sshTest": "Test SSH",
       "action.sshTesting": "Testing SSH…",
       "ssh.success": "SSH and Linux environment checks passed ({ms} ms)",
@@ -204,7 +206,7 @@ window.__ModuleLoader__.load({
       "label.unknown": "Unknown",
       "hint.promUnavailable": "Prometheus target data is unavailable.",
       "hint.promEmpty": "Prometheus has no active scrape targets.",
-      "hint.kuma": "Kuma shows its web service probe here. Sign in to Kuma for monitor uptime and response times.",
+      "hint.kuma": "Kuma is reachable. Configure the statusPage slug of a public page to show its monitors.",
       "label.readLatency": "Read latency",
       "label.writeLatency": "Write latency",
       "label.inFlight": "In flight",
@@ -459,7 +461,9 @@ window.__ModuleLoader__.load({
 .smx-chartLegend{display:flex;gap:8px 14px;flex-wrap:wrap;margin-top:8px}
 .smx-seriesLegend{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--dsw-alias-label-secondary)}
 .smx-seriesLegend strong{color:var(--dsw-alias-label-primary);font-variant-numeric:tabular-nums}
-.smx-setup{max-width:700px}.smx-setup p{margin:8px 0 12px}.smx-setup pre,.smx-diagnostic pre{overflow:auto;border-radius:8px;padding:12px;background:var(--dsw-alias-bg-layer-2);font:12px/1.6 var(--ds-font-family-code,monospace)}
+.smx-setup{max-width:700px}.smx-setup p{margin:8px 0 12px}.smx-setup textarea,.smx-diagnostic pre{overflow:auto;border-radius:8px;padding:12px;background:var(--dsw-alias-bg-layer-2);font:12px/1.6 var(--ds-font-family-code,monospace)}
+.smx-setup textarea{box-sizing:border-box;width:100%;min-height:132px;resize:vertical;color:inherit;border:1px solid var(--dsw-alias-border-l1)}
+.smx-aliases{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.smx-aliases label{display:flex;align-items:center;gap:6px;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;padding:5px 8px}
 .smx-diagnostic{margin-bottom:var(--smx-gap)}.smx-diagnostic pre{white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0 0}
 .smx-plotEmpty{min-height:104px;display:grid;place-items:center;text-align:center;background:var(--dsw-alias-bg-layer-2);border-radius:6px}
 .smx-scroll{overflow-x:auto}
@@ -571,7 +575,37 @@ window.__ModuleLoader__.load({
             label, h("strong", null, Number.isFinite(selected?.[index]) ? format(selected[index]) : "—")))));
     }
 
-    function ServicePanel({ services, history, prom }) {
+    function SshSetup() {
+      const [hosts, setHosts] = useState(null);
+      const [error, setError] = useState(null);
+      const [selected, setSelected] = useState([]);
+      useEffect(() => {
+        fetch(API + "/ssh-hosts").then((response) => {
+          if (!response.ok) throw new Error("HTTP " + response.status);
+          return response.json();
+        }).then(setHosts, (failure) => setError(failure.message));
+      }, []);
+      const examples = selected.length ? selected : ["my-linux-server"];
+      const yaml = ["- id: server-monitor", "  config:", "    targets:", ...examples.flatMap((alias) => [
+        "      - id: " + JSON.stringify(alias), "        sshHost: " + JSON.stringify(alias),
+      ])].join("\n");
+      return h("section", { className: "smx-card smx-setup" },
+        h("h2", null, tt("setup.hosts")),
+        h("p", null, tt("setup.aliasTip")),
+        error ? h("p", { role: "alert" }, tt("error.title") + " · " + error) :
+          !hosts ? h("p", { role: "status" }, tt("setup.loadingAliases")) :
+          hosts.aliases.length ? h("div", { className: "smx-aliases" }, hosts.aliases.map((alias) => h("label", { key: alias },
+            h("input", { type: "checkbox", checked: selected.includes(alias), onChange: (event) => {
+              const checked = event.target.checked;
+              setSelected((previous) => checked ? [...previous, alias] : previous.filter((item) => item !== alias));
+            } }),
+            alias, hosts.monitored.includes(alias) ? h("span", { className: "smx-muted" }, tt("setup.monitored")) : null))) :
+          h("p", { className: "smx-muted" }, tt("setup.noAliases")),
+        h("textarea", { readOnly: true, value: yaml, rows: yaml.split("\n").length + 1, "aria-label": tt("setup.yaml"), onFocus: (event) => event.target.select() }),
+        h("p", { className: "smx-muted" }, tt("setup.trust")));
+    }
+
+    function ServicePanel({ services, history, prom, kuma }) {
       if (!services.length) return h(Card, { title: tt("label.services") }, tt("setup.services"));
       return h(React.Fragment, null,
         h("h2", { className: "smx-sectionTitle" }, tt("label.services")),
@@ -588,13 +622,26 @@ window.__ModuleLoader__.load({
                 h("span", { className: "smx-serviceStatus", "data-s": service.status }, service.status === "up" ? "✓ " + label : service.status === "down" ? "× " + label : label)),
               h("span", { className: "smx-servicePort" }, service.url,
                 service.latencyMs !== null ? " · " + fmtNum(service.latencyMs, 0) + " ms" : null),
+              service.version ? h("div", { className: "smx-muted" }, tt("label.version") + " " + service.version) : null,
+              service.database ? h("div", { className: "smx-muted" }, tt("label.database") + " · " + service.database) : null,
               h("div", { className: "smx-beats", role: "img", "aria-label": tt("label.lastSamples") + " · " + name + " · " + tt("label.samples", { n: recent.length }) },
                 recent.map(([time, status]) => h("span", { key: time, "aria-hidden": "true", className: "smx-beat", "data-s": status,
                   title: fmtClock(time) + " · " + tt(status === "up" ? "label.serviceUp" : status === "down" ? "label.serviceDown" : "label.historyUnknown"),
                 }))));
           }))),
-        services.some((service) => service.name === "uptime-kuma" && service.status === "up")
-          ? h("p", { className: "smx-muted" }, tt("hint.kuma")) : null,
+        kuma ? h(React.Fragment, null,
+          h("h2", { className: "smx-sectionTitle" }, tt("label.kumaMonitors"), kuma.title ? " · " + kuma.title : null),
+          h(Card, null, kuma.monitors.length ? h("div", { className: "smx-scroll" },
+            h("table", { className: "smx-table" },
+              h("thead", null, h("tr", null, ["label.kumaMonitor", "label.status", "label.kumaUptime", "label.kumaPing"].map((label) => h("th", { key: label, scope: "col" }, tt(label))))),
+              h("tbody", null, kuma.monitors.map((monitor) => h("tr", { key: monitor.group + ":" + monitor.id },
+                h("td", null, h("strong", null, monitor.name), h("div", { className: "smx-muted" }, monitor.group)),
+                h("td", null, tt(["label.down", "label.up", "label.pending", "label.maintenance"][monitor.status] ?? "label.unknown")),
+                h("td", { className: "smx-num" }, Number.isFinite(monitor.uptime) ? fmtPct(monitor.uptime * 100) : "—"),
+                h("td", { className: "smx-num" }, Number.isFinite(monitor.ping) ? fmtNum(monitor.ping, 0) + " ms" : "—"))))))
+            : h("p", { className: "smx-muted" }, tt("hint.kumaEmpty"))))
+          : services.some((service) => service.name === "uptime-kuma" && service.status === "up")
+            ? h("p", { className: "smx-muted" }, tt("hint.kuma")) : null,
         services.some((service) => service.name === "prometheus") ? h(React.Fragment, null,
         h("h2", { className: "smx-sectionTitle" }, tt("label.promTargets")),
         h(Card, null,
@@ -673,6 +720,7 @@ window.__ModuleLoader__.load({
       const [tab, setTab] = useState("cpu");
       const [view, setView] = useState("overview");
       const [connection, setConnection] = useState(null);
+      const [showHosts, setShowHosts] = useState(false);
 
       useEffect(() => {
         let cancelled = false;
@@ -747,7 +795,7 @@ window.__ModuleLoader__.load({
             h("span", { className: "smx-healthLed", "data-s": host.status, "aria-hidden": "true" }),
             h("div", { className: "smx-healthMeta" },
               h("div", { className: "smx-healthName" }, host.label),
-              h("div", { className: "smx-healthSub smx-mono" }, host.host, host.source === "remote-ssh" ? " · Remote SSH" : null)),
+              h("div", { className: "smx-healthSub smx-mono" }, host.host, host.source === "openssh" ? " · OpenSSH" : null)),
             h("div", { className: "smx-healthInfo" },
               h("strong", null, tt(active ? "label.sshOnline" : "status.offline")),
               active ? h("span", null, tt("health.svcUp", { n: serviceCount }) + " · " + tt("alert.count", { n: hostAlerts.length })) : null,
@@ -761,6 +809,7 @@ window.__ModuleLoader__.load({
               h("div", { className: "smx-sub" }, tt("panel.subtitle")))),
           h("div", { className: "smx-spacer" }),
           h("div", { className: "smx-actions" },
+            snap ? h("button", { className: "smx-btn", "aria-pressed": showHosts, onClick: () => setShowHosts((value) => !value) }, tt("setup.hosts")) : null,
             snap ? h("button", { className: "smx-btn", onClick: testConnection, disabled: connection?.pending }, tt(diagnostic?.pending ? "action.sshTesting" : "action.sshTest")) : null,
             snap ? h("button", { className: "smx-btn", onClick: () => setAuto((v) => !v) }, tt(auto ? "action.pause" : "action.resume")) : null,
             h("button", { className: "smx-btn", onClick: () => setRefreshToken((n) => n + 1) }, tt("action.refresh")))),
@@ -775,15 +824,7 @@ window.__ModuleLoader__.load({
 
       let body;
       if (payload && !snap && !error) {
-        body = h("section", { className: "smx-card smx-setup" },
-          h("h2", null, tt("setup.title")),
-          h("p", null, tt("setup.config")),
-          h("pre", null, EXAMPLE_CONFIG),
-          h("p", { className: "smx-muted" }, tt("setup.trust")),
-          h("details", null,
-            h("summary", null, tt("setup.remote")),
-            h("p", { className: "smx-muted" }, tt("setup.remoteDetails")),
-            h("pre", null, EXAMPLE_REMOTE_SSH)));
+        body = h(SshSetup);
       } else if (!snap) {
         body = h("div", { className: "smx-empty" },
           h("div", { className: "smx-banner", "data-kind": "error", style: { maxWidth: 560 } }, h("strong", null, tt("error.title") + ": "), error || tt("empty.noData")),
@@ -897,7 +938,7 @@ window.__ModuleLoader__.load({
         }
 
         if (view === "services") {
-          parts.push(h(ServicePanel, { services, history, prom: d.prometheus }));
+          parts.push(h(ServicePanel, { services, history, prom: d.prometheus, kuma: d.kuma }));
         }
 
         if (view === "storage") {
@@ -1026,6 +1067,7 @@ window.__ModuleLoader__.load({
           diagnostic ? h("div", { className: "smx-card smx-diagnostic", role: "status" },
             diagnostic.pending ? tt("action.sshTesting") : diagnostic.ok ? tt("ssh.success", { ms: diagnostic.latencyMs }) : tt("ssh." + diagnostic.reason),
             diagnostic.error ? h("pre", null, diagnostic.error) : null) : null,
+          showHosts && snap ? h(SshSetup) : null,
           snap ? healthStrip : null, d ? navigation : null, body));
     }
     //#endregion

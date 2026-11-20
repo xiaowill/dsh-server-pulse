@@ -1,11 +1,12 @@
 import { collectSnapshot } from "./host/collector.js";
 import { REQUIRE_LINUX, runSsh, sshFailure } from "./host/ssh.js";
-import { resolveConfig, resolveTargets } from "./host/targets.js";
+import { resolveConfig } from "./host/targets.js";
+import { listSshAliases } from "./host/ssh-config.js";
 
 export { buildSnapshot, collectSnapshot, parseSections } from "./host/collector.js";
 
 export const name = "server-monitor";
-export const inject = ["webServer", "settings"];
+export const inject = ["webServer"];
 
 function isLoopbackRequest(request) {
   const addr = request.socket && request.socket.remoteAddress;
@@ -34,17 +35,11 @@ function writeJson(res, status, body) {
   res.end(text);
 }
 
-function makeRoutes(cfg, settings) {
-  const targetsNow = resolveTargets(cfg.targets, settings);
+function makeRoutes(cfg) {
+  const { targets } = cfg;
   const cache = new WeakMap();
 
   const snapshotFor = (target) => {
-    if (target.issue) {
-      return {
-        id: target.id, label: target.label, host: target.host, source: target.source,
-        status: "offline", reason: target.issue, sampledAt: new Date().toISOString(), latencyMs: null,
-      };
-    }
     const now = Date.now();
     const entry = cache.get(target);
     if (entry && entry.pending) return entry.promise;
@@ -88,7 +83,6 @@ function makeRoutes(cfg, settings) {
   };
 
   const snapshotAll = async () => {
-    const targets = targetsNow();
     const results = await Promise.all(targets.map(snapshotFor));
     return {
       targets: targets.map((t) => ({ id: t.id, label: t.label, host: t.host, user: t.user, source: t.source })),
@@ -124,10 +118,8 @@ function makeRoutes(cfg, settings) {
       handler: async (req, res) => {
         if (!guard(req, res)) return;
         const id = new URL(req.url, "http://localhost").searchParams.get("target");
-        const target = targetsNow().find((entry) => entry.id === id);
+        const target = targets.find((entry) => entry.id === id);
         if (!target) { writeJson(res, 404, { error: "Unknown target" }); return; }
-
-        if (target.issue) { writeJson(res, 200, { ok: false, reason: target.issue }); return; }
 
         const startedAt = Date.now();
         const result = await runSsh(target, cfg, "bash -s", REQUIRE_LINUX).then(
@@ -135,6 +127,17 @@ function makeRoutes(cfg, settings) {
           (error) => ({ ok: false, reason: sshFailure(error), error: error.message }),
         );
         writeJson(res, 200, { ...result, latencyMs: Date.now() - startedAt });
+      },
+    },
+    {
+      kind: "exact",
+      path: "/api/server-monitor/ssh-hosts",
+      handler: (req, res) => {
+        if (!guard(req, res)) return;
+        writeJson(res, 200, {
+          aliases: listSshAliases(),
+          monitored: targets.filter((target) => target.sshHost).map((target) => target.sshHost),
+        });
       },
     },
     {
@@ -150,7 +153,7 @@ function makeRoutes(cfg, settings) {
 
 export function apply(ctx, rawConfig) {
   const cfg = resolveConfig(rawConfig);
-  const routes = makeRoutes(cfg, ctx.settings);
+  const routes = makeRoutes(cfg);
   ctx.effect(() => {
     const disposers = routes.map((route) => ctx.webServer.register(route));
     return () => { for (const dispose of disposers.splice(0)) dispose(); };
