@@ -27,11 +27,11 @@ function connectionProblem({ host, user, port, keyPath }) {
 
 export function resolveConfig({
   targets = [],
-  intervalMs = 3000,
+  intervalMs = 5000,
   connectTimeoutMs = 8000,
-  sshPath = "/usr/bin/ssh",
+  sshPath = "ssh",
 } = {}) {
-  if (!Array.isArray(targets)) throw new TypeError("server-monitor.targets must be a list");
+  if (!Array.isArray(targets)) throw new TypeError("server-pulse.targets must be a list");
   if (!Number.isInteger(intervalMs) || intervalMs < 1000) throw new TypeError("intervalMs must be an integer ≥ 1000");
   if (!Number.isInteger(connectTimeoutMs) || connectTimeoutMs < 2000) throw new TypeError("connectTimeoutMs must be an integer ≥ 2000");
   if (typeof sshPath !== "string" || !sshPath.trim()) throw new TypeError("sshPath must be a nonempty string");

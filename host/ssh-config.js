@@ -1,4 +1,4 @@
-import { existsSync, globSync, readFileSync, realpathSync } from "node:fs";
+import { existsSync, globSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -11,10 +11,18 @@ export function listSshAliases(file = join(homedir(), ".ssh", "config")) {
   const aliases = new Set();
 
   const scan = (path) => {
-    const canonical = realpathSync(path);
-    if (visited.has(canonical)) return;
-    visited.add(canonical);
-    for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {
+    let canonical;
+    let content;
+    try {
+      if (!statSync(path).isFile()) return;
+      canonical = realpathSync(path);
+      if (visited.has(canonical)) return;
+      visited.add(canonical);
+      content = readFileSync(path, "utf8");
+    } catch {
+      return; // skip directories, broken symlinks and unreadable files
+    }
+    for (const line of content.split(/\r?\n/)) {
       const directive = /^\s*(host|include)(?:\s*=\s*|\s+)(.*)$/i.exec(line);
       if (!directive) continue;
       const [, key, rules] = directive;
@@ -25,7 +33,9 @@ export function listSshAliases(file = join(homedir(), ".ssh", "config")) {
       } else {
         for (const value of values) {
           const pattern = value.startsWith("~/") ? join(homedir(), value.slice(2)) : value;
-          for (const included of globSync(pattern, { cwd: root }).sort()) scan(included.startsWith("/") ? included : join(root, included));
+          let matches;
+          try { matches = globSync(pattern, { cwd: root }).sort(); } catch { continue; }
+          for (const included of matches) scan(included.startsWith("/") ? included : join(root, included));
         }
       }
     }

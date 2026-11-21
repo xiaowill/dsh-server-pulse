@@ -243,14 +243,27 @@ function parseGpu(lines) {
 }
 
 function parseMiB(value) {
-  const m = /^([\d.]+)\s*(MiB|GiB|KiB|B)?/i.exec(String(value).trim());
+  // Docker prints SI (kB/MB/GB/TB) by default and IEC (KiB/MiB/GiB/TiB) when --format
+  // is asked for binary units. Normalize both to MiB.
+  const m = /^([\d.]+)\s*([a-zA-Z]*)/.exec(String(value).trim());
   if (!m) return 0;
   const n = Number(m[1]) || 0;
   const unit = (m[2] || "MiB").toLowerCase();
-  if (unit === "gib") return n * 1024;
-  if (unit === "kib") return n / 1024;
-  if (unit === "b") return n / 1048576;
-  return n;
+  switch (unit) {
+    case "ti":
+    case "tib": return n * 1024 * 1024;
+    case "gi":
+    case "gib": return n * 1024;
+    case "gb": return (n * 1000 * 1000 * 1000) / 1048576;
+    case "mi":
+    case "mib": return n;
+    case "mb": return (n * 1000 * 1000) / 1048576;
+    case "ki":
+    case "kib": return n / 1024;
+    case "kb": return (n * 1000) / 1048576;
+    case "b": return n / 1048576;
+    default: return n; // bare number already in MiB
+  }
 }
 
 function parseDocker(lines) {

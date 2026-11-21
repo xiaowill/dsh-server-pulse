@@ -1,13 +1,13 @@
 window.__ModuleLoader__.load({
-  id: "dsh-server-monitor",
+  id: "dsh-server-pulse",
   factory(require) {
     const React = require("react");
     const h = React.createElement;
     const { useState, useEffect } = React;
 
-    const NS = "server-monitor";
-    const API = "api/server-monitor";
-    const PANEL_ID = "server-monitor";
+    const NS = "server-pulse";
+    const API = "api/server-pulse";
+    const PANEL_ID = "server-pulse";
     const PANEL_ORDER = 40;
     const POLL_MS = 3000;
     const OFFLINE_MS = 15000;
@@ -158,6 +158,12 @@ window.__ModuleLoader__.load({
       "sev.warn": "警告",
       "health.svcUp": "{n} 项探测通过",
       "label.health": "整体状态",
+      "setup.copyYaml": "复制 YAML",
+      "setup.copied": "已复制",
+      "setup.copyFailed": "复制失败，请手动选择文本复制",
+      "label.refreshEvery": "刷新间隔",
+      "label.jobInstance": "任务 / 实例",
+      "label.name": "名称",
     };
     const en = {
       "setup.hosts": "Local SSH hosts",
@@ -304,6 +310,12 @@ window.__ModuleLoader__.load({
       "sev.warn": "Warning",
       "health.svcUp": "{n} probes passed",
       "label.health": "Overall health",
+      "setup.copyYaml": "Copy YAML",
+      "setup.copied": "Copied",
+      "setup.copyFailed": "Copy failed — please select and copy manually",
+      "label.refreshEvery": "Refresh",
+      "label.jobInstance": "Job / Instance",
+      "label.name": "Name",
     };
     const dictionaries = { zh, en };
     let translate = null;
@@ -372,6 +384,11 @@ window.__ModuleLoader__.load({
 .smx-sub{font-size:12px;color:var(--dsw-alias-label-secondary)}
 .smx-spacer{flex:1;min-width:8px}
 .smx-btn{min-height:34px;border-radius:9px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);padding:5px 12px;font:inherit;font-size:13px;cursor:pointer;transition:background .15s ease,border-color .15s ease,transform .15s ease}
+.smx-btn:hover{background:var(--dsw-alias-bg-layer-2);border-color:var(--dsw-alias-brand-primary)}.smx-btn:active{transform:translateY(1px)}
+.smx-btn-sm{min-height:26px;padding:3px 9px;font-size:12px;border-radius:7px}
+.smx-refresh{display:inline-flex;align-items:center;gap:6px;font-size:12px}
+.smx-select{min-height:34px;border-radius:9px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);padding:5px 8px;font:inherit;font-size:13px;cursor:pointer}
+.smx-refresh .smx-muted{white-space:nowrap}
 .smx-btn:hover{background:var(--dsw-alias-bg-layer-2);border-color:var(--dsw-alias-brand-primary)}
 .smx-btn:active{transform:scale(.97)}
 .smx-pill{display:inline-flex;align-items:center;gap:7px;min-height:28px;padding:3px 10px;border-radius:999px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);font-size:12px;font-weight:600;white-space:nowrap}
@@ -461,7 +478,7 @@ window.__ModuleLoader__.load({
 .smx-chartLegend{display:flex;gap:8px 14px;flex-wrap:wrap;margin-top:8px}
 .smx-seriesLegend{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--dsw-alias-label-secondary)}
 .smx-seriesLegend strong{color:var(--dsw-alias-label-primary);font-variant-numeric:tabular-nums}
-.smx-setup{max-width:700px}.smx-setup p{margin:8px 0 12px}.smx-setup textarea,.smx-diagnostic pre{overflow:auto;border-radius:8px;padding:12px;background:var(--dsw-alias-bg-layer-2);font:12px/1.6 var(--ds-font-family-code,monospace)}
+.smx-setup{max-width:700px}.smx-setup p{margin:8px 0 12px}.smx-yamlHead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px 0 6px}.smx-setup textarea,.smx-diagnostic pre{overflow:auto;border-radius:8px;padding:12px;background:var(--dsw-alias-bg-layer-2);font:12px/1.6 var(--ds-font-family-code,monospace)}
 .smx-setup textarea{box-sizing:border-box;width:100%;min-height:132px;resize:vertical;color:inherit;border:1px solid var(--dsw-alias-border-l1)}
 .smx-aliases{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.smx-aliases label{display:flex;align-items:center;gap:6px;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;padding:5px 8px}
 .smx-diagnostic{margin-bottom:var(--smx-gap)}.smx-diagnostic pre{white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0 0}
@@ -489,7 +506,7 @@ window.__ModuleLoader__.load({
 @media (max-width:640px){.smx-page{padding:16px 14px 32px}.smx-title{font-size:19px}.smx-big{font-size:28px}}
 @container (max-width:400px){.smx-nav{gap:2px}.smx-nav button{padding-inline:7px}}
 `;
-    function StyleTag() { return h("style", { "data-dsh-server-monitor": "" }, CSS); }
+    function StyleTag() { return h("style", { "data-dsh-server-pulse": "" }, CSS); }
 
     // Deterministic 270-degree gauge arc (segmented by thresholds) — pure SVG, no deps.
     //#endregion
@@ -579,6 +596,7 @@ window.__ModuleLoader__.load({
       const [hosts, setHosts] = useState(null);
       const [error, setError] = useState(null);
       const [selected, setSelected] = useState([]);
+      const [copied, setCopied] = useState(false);
       useEffect(() => {
         fetch(API + "/ssh-hosts").then((response) => {
           if (!response.ok) throw new Error("HTTP " + response.status);
@@ -586,9 +604,27 @@ window.__ModuleLoader__.load({
         }).then(setHosts, (failure) => setError(failure.message));
       }, []);
       const examples = selected.length ? selected : ["my-linux-server"];
-      const yaml = ["- id: server-monitor", "  config:", "    targets:", ...examples.flatMap((alias) => [
+      const yaml = ["- id: server-pulse", "  config:", "    targets:", ...examples.flatMap((alias) => [
         "      - id: " + JSON.stringify(alias), "        sshHost: " + JSON.stringify(alias),
       ])].join("\n");
+      const copyYaml = async () => {
+        try {
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(yaml);
+          } else {
+            const area = document.createElement("textarea");
+            area.value = yaml;
+            document.body.appendChild(area);
+            area.select();
+            document.execCommand("copy");
+            area.remove();
+          }
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        } catch {
+          setError(tt("setup.copyFailed"));
+        }
+      };
       return h("section", { className: "smx-card smx-setup" },
         h("h2", null, tt("setup.hosts")),
         h("p", null, tt("setup.aliasTip")),
@@ -601,6 +637,9 @@ window.__ModuleLoader__.load({
             } }),
             alias, hosts.monitored.includes(alias) ? h("span", { className: "smx-muted" }, tt("setup.monitored")) : null))) :
           h("p", { className: "smx-muted" }, tt("setup.noAliases")),
+        h("div", { className: "smx-yamlHead" },
+          h("span", { className: "smx-muted" }, tt("setup.yaml")),
+          h("button", { type: "button", className: "smx-btn smx-btn-sm", onClick: copyYaml }, copied ? "✓ " + tt("setup.copied") : tt("setup.copyYaml"))),
         h("textarea", { readOnly: true, value: yaml, rows: yaml.split("\n").length + 1, "aria-label": tt("setup.yaml"), onFocus: (event) => event.target.select() }),
         h("p", { className: "smx-muted" }, tt("setup.trust")));
     }
@@ -633,7 +672,7 @@ window.__ModuleLoader__.load({
           h("h2", { className: "smx-sectionTitle" }, tt("label.kumaMonitors"), kuma.title ? " · " + kuma.title : null),
           h(Card, null, kuma.monitors.length ? h("div", { className: "smx-scroll" },
             h("table", { className: "smx-table" },
-              h("thead", null, h("tr", null, ["label.kumaMonitor", "label.status", "label.kumaUptime", "label.kumaPing"].map((label) => h("th", { key: label, scope: "col" }, tt(label))))),
+              h("thead", null, h("tr", null, ["label.kumaMonitor", "label.status", "label.kumaUptime", "label.kumaPing"].map((label, i) => h("th", { key: label, scope: "col", className: i > 1 ? "smx-num" : undefined }, tt(label))))),
               h("tbody", null, kuma.monitors.map((monitor) => h("tr", { key: monitor.group + ":" + monitor.id },
                 h("td", null, h("strong", null, monitor.name), h("div", { className: "smx-muted" }, monitor.group)),
                 h("td", null, tt(["label.down", "label.up", "label.pending", "label.maintenance"][monitor.status] ?? "label.unknown")),
@@ -652,7 +691,7 @@ window.__ModuleLoader__.load({
               prom.other ? h("span", { className: "smx-pill" }, prom.other + " " + tt("label.unknown")) : null),
             prom.targets.length > 0 ? h("div", { className: "smx-scroll" },
               h("table", { className: "smx-table" },
-                h("thead", null, h("tr", null, ["Job / Instance", tt("label.status"), tt("label.scrape"), tt("label.duration")].map((label, i) => h("th", { key: label, scope: "col", className: i > 1 ? "smx-num" : undefined }, label)))),
+                h("thead", null, h("tr", null, [tt("label.jobInstance"), tt("label.status"), tt("label.scrape"), tt("label.duration")].map((label, i) => h("th", { key: i, scope: "col", className: i > 1 ? "smx-num" : undefined }, label)))),
                 h("tbody", null, prom.targets.slice().sort((a, b) => Number(b.health === "down") - Number(a.health === "down")).map((target, i) =>
                   h("tr", { key: i },
                     h("td", { className: "smx-wrap" }, h("strong", null, target.job),
@@ -670,9 +709,9 @@ window.__ModuleLoader__.load({
       if (!rows || rows.length === 0) return h("div", { className: "smx-muted" }, tt("empty.noData"));
       return h("table", { className: "smx-table" },
         h("thead", null, h("tr", null,
-          h("th", { style: { width: 70 } }, "CPU"),
-          h("th", { style: { width: 70 } }, "MEM"),
-          h("th", null, "PID"),
+          h("th", { className: "smx-num", style: { width: 70 } }, "CPU"),
+          h("th", { className: "smx-num", style: { width: 70 } }, "MEM"),
+          h("th", { className: "smx-num" }, "PID"),
           h("th", null, tt("label.command")))),
         h("tbody", null, rows.map((x) => h("tr", { key: x.pid },
           h("td", { className: "smx-num", style: { color: levelColor(x.cpu) } }, fmtPct(x.cpu)),
@@ -717,16 +756,26 @@ window.__ModuleLoader__.load({
       const [targetId, setTargetId] = useState(null);
       const [refreshToken, setRefreshToken] = useState(0);
       const [auto, setAuto] = useState(true);
+      const [pollMs, setPollMs] = useState(5000);
+      const [visible, setVisible] = useState(typeof document === "undefined" || !document.hidden);
       const [tab, setTab] = useState("cpu");
       const [view, setView] = useState("overview");
       const [connection, setConnection] = useState(null);
       const [showHosts, setShowHosts] = useState(false);
 
       useEffect(() => {
+        if (typeof document === "undefined") return;
+        const onVisibility = () => setVisible(!document.hidden);
+        document.addEventListener("visibilitychange", onVisibility);
+        return () => document.removeEventListener("visibilitychange", onVisibility);
+      }, []);
+
+      useEffect(() => {
+        if (!visible) return; // pause polling while the tab is hidden
         let cancelled = false;
         let timer = null;
         const tick = async () => {
-          let nextMs = auto ? POLL_MS : 0;
+          let nextMs = auto ? pollMs : 0;
           try {
             const res = await fetch(API + "/snapshot", { headers: { accept: "application/json" } });
             if (!res.ok) throw new Error("HTTP " + res.status);
@@ -736,7 +785,7 @@ window.__ModuleLoader__.load({
             setError(null);
             setLoading(false);
             const anyOnline = json.snapshots.some((s) => s.status === "online");
-            nextMs = auto && json.snapshots.length ? Math.max(json.intervalMs, anyOnline ? POLL_MS : OFFLINE_MS) : 0;
+            nextMs = auto && json.snapshots.length ? Math.max(json.intervalMs, anyOnline ? pollMs : OFFLINE_MS) : 0;
           } catch (err) {
             if (cancelled) return;
             setError(err && err.message ? err.message : String(err));
@@ -747,7 +796,7 @@ window.__ModuleLoader__.load({
         };
         tick();
         return () => { cancelled = true; if (timer) clearTimeout(timer); };
-      }, [refreshToken, auto]);
+      }, [refreshToken, auto, pollMs, visible]);
 
       const snapshots = payload && Array.isArray(payload.snapshots) ? payload.snapshots : [];
       const snap = snapshots.find((s) => s.id === targetId) || snapshots[0] || null;
@@ -811,6 +860,10 @@ window.__ModuleLoader__.load({
           h("div", { className: "smx-actions" },
             snap ? h("button", { className: "smx-btn", "aria-pressed": showHosts, onClick: () => setShowHosts((value) => !value) }, tt("setup.hosts")) : null,
             snap ? h("button", { className: "smx-btn", onClick: testConnection, disabled: connection?.pending }, tt(diagnostic?.pending ? "action.sshTesting" : "action.sshTest")) : null,
+            h("label", { className: "smx-refresh", title: tt("label.refreshEvery") },
+              h("span", { className: "smx-muted" }, tt("label.refreshEvery")),
+              h("select", { className: "smx-select", value: pollMs, "aria-label": tt("label.refreshEvery"), onChange: (event) => setPollMs(Number(event.target.value)) },
+                [3000, 5000, 10000, 30000].map((ms) => h("option", { key: ms, value: ms }, ms / 1000 + "s")))),
             snap ? h("button", { className: "smx-btn", onClick: () => setAuto((v) => !v) }, tt(auto ? "action.pause" : "action.resume")) : null,
             h("button", { className: "smx-btn", onClick: () => setRefreshToken((n) => n + 1) }, tt("action.refresh")))),
         snap ? h("div", { className: "smx-meta" },
@@ -1028,7 +1081,7 @@ window.__ModuleLoader__.load({
                   ? h("span", { className: "smx-muted" }, tt("no.docker"))
                   : h("table", { className: "smx-table" },
                       h("thead", null, h("tr", null,
-                        h("th", null, "Name"), h("th", null, "CPU"), h("th", null, "MEM"))),
+                        h("th", null, tt("label.name")), h("th", { className: "smx-num" }, tt("label.cpu")), h("th", { className: "smx-num" }, tt("label.memory")))),
                       h("tbody", null, dockers.map((x, i) => h("tr", { key: i },
                         h("td", { className: "smx-mono" }, x.name),
                         h("td", { className: "smx-num", style: { color: levelColor(x.cpuPct) } }, fmtPct(x.cpuPct)),
@@ -1092,7 +1145,7 @@ window.__ModuleLoader__.load({
     function apply(ctx) {
       ctx.effect(() => {
         try { return ctx.locale.register(NS, dictionaries); } catch { return () => {}; }
-      }, "server-monitor: dictionaries");
+      }, "server-pulse: dictionaries");
       try { translate = ctx.locale.bind(NS); } catch {}
 
       ctx.effect(() => {
@@ -1107,10 +1160,10 @@ window.__ModuleLoader__.load({
             name: "main", key: PANEL_ID,
           }, ServerMonitorPage)));
         } catch (error) {
-          console.warn("[server-monitor] panel registration failed:", error);
+          console.warn("[server-pulse] panel registration failed:", error);
         }
         return () => { for (const dispose of disposers.splice(0)) dispose(); };
-      }, "server-monitor: ui mounts");
+      }, "server-pulse: ui mounts");
     }
     //#endregion
 

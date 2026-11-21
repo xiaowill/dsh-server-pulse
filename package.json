@@ -1,24 +1,33 @@
 {
-  "name": "dsh-server-monitor",
-  "version": "1.3.0-beta.1",
+  "name": "dsh-server-pulse",
+  "version": "1.3.0",
   "license": "MIT",
+  "author": "xiaowill",
   "engines": {
-    "dsh": "0.2.2-rc.5"
+    "dsh": ">=0.2.0-rc.2 <0.3.0 || >=0.2.1-rc.1 <0.3.0 || >=0.2.2-rc.1 <0.3.0",
+    "node": ">=22.0.0"
   },
   "keywords": [
     "dsh-plugin",
-    "server-monitor",
+    "dsh",
+    "deepseek-harness",
+    "server-monitoring",
+    "server-pulse",
     "ssh",
-    "linux"
+    "linux",
+    "prometheus",
+    "grafana",
+    "uptime-kuma"
   ],
   "type": "module",
-  "description": "Read-only real-time Linux server metrics panel with a left sidebar entry.",
+  "description": "Read-only real-time Linux server & monitoring services panel over OpenSSH for DeepSeek Harness.",
   "icon": "icon.svg",
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",
     "./locale/*.json": "./locale/*.json",
-    "./icon": "./icon.svg"
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
   },
   "files": [
     "index.js",
@@ -30,7 +39,9 @@
     "README.md",
     "README.en.md",
     "CHANGELOG.md",
-    "docs/*.md",
+    "SECURITY.md",
+    "docs/installation.md",
+    "docs/architecture.md",
     "docs/assets/*.png"
   ],
   "dsh": {
@@ -46,13 +57,13 @@
       ]
     }
   },
-  "homepage": "https://github.com/xiaowill/dsh-server-monitor#readme",
+  "homepage": "https://github.com/xiaowill/dsh-server-pulse#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/xiaowill/dsh-server-monitor.git"
+    "url": "git+https://github.com/xiaowill/dsh-server-pulse.git"
   },
   "bugs": {
-    "url": "https://github.com/xiaowill/dsh-server-monitor/issues"
+    "url": "https://github.com/xiaowill/dsh-server-pulse/issues"
   },
   "scripts": {
     "check": "node --check index.js && node --check client.js && node --check host/collector.js && node --check host/ssh.js && node --check host/targets.js && node --check host/ssh-config.js && node --check host/services.js",

@@ -1,7 +1,7 @@
 {
   "meta": {
-    "title": "服务器监控",
-    "description": "通过 SSH 只读采集 Linux 服务器的实时指标（CPU、内存、负载、磁盘、网络、占用最高的进程），以左侧栏面板展示。",
+    "title": "服务器脉搏",
+    "description": "通过 SSH 只读采集 Linux 服务器的实时指标（CPU、内存、负载、磁盘/IO、网络/TCP、进程、GPU、容器）与监控服务（Grafana/Prometheus/Kuma）状态，以左侧栏面板展示。",
     "detail": "README.md"
   }
 }

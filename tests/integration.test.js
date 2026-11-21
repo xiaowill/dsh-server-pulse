@@ -73,10 +73,10 @@ printf '@@T0\\n1\\n@@T1\\n2\\n@@MEMINFO\\nMemTotal: 1000 kB\\nMemAvailable: 600 
     return result;
   };
 
-  const snapshot = "/api/server-monitor/snapshot";
-  assert.equal((await call("/api/server-monitor/ssh-hosts", { headers: { host: "localhost", "sec-fetch-site": "cross-site" } })).status, 403);
+  const snapshot = "/api/server-pulse/snapshot";
+  assert.equal((await call("/api/server-pulse/ssh-hosts", { headers: { host: "localhost", "sec-fetch-site": "cross-site" } })).status, 403);
   assert.equal((await call(snapshot, { method: "POST" })).status, 405);
-  assert.equal((await call("/api/server-monitor/connection?target=unknown")).status, 404);
+  assert.equal((await call("/api/server-pulse/connection?target=unknown")).status, 404);
   const sample = (await call(snapshot)).data.snapshots[0];
   assert.equal(sample.source, "openssh");
   assert.equal(sample.status, "online");

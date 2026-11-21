@@ -18,8 +18,8 @@ collect_service() {
   local name=$1 configured=$2 slug=$3 url port response code elapsed media path
   local -a ports urls
   case "$name" in
-    grafana) ports=(3000 19095); path=api/health ;;
-    prometheus) ports=(9090 19093); path=-/ready ;;
+    grafana) ports=(3000); path=api/health ;;
+    prometheus) ports=(9090); path=-/ready ;;
     uptime-kuma) ports=(3001); path=api/entry-page ;;
     node-exporter) ports=(9100); path=metrics ;;
   esac
@@ -71,7 +71,13 @@ fi
 export function readServiceDetails(sections) {
   const parse = (key) => {
     const data = sections[key]?.join("\n").trim();
-    return data ? JSON.parse(data) : null;
+    if (!data) return null;
+    try {
+      const parsed = JSON.parse(data);
+      return parsed && typeof parsed === "object" ? parsed : null;
+    } catch {
+      return null;
+    }
   };
   const grafana = parse("GRAFANA");
   const build = parse("PROM_BUILD");
@@ -90,10 +96,11 @@ export function readServiceDetails(sections) {
         ...(name === "prometheus" && build?.status === "success" ? { version: build.data.version } : {}),
       }]];
     })),
-    prometheus: targets?.status === "success" ? parsePromTargets(targets.data.activeTargets) : null,
-    kuma: page?.publicGroupList ? {
+    prometheus: targets?.status === "success" && Array.isArray(targets.data?.activeTargets)
+      ? parsePromTargets(targets.data.activeTargets) : null,
+    kuma: Array.isArray(page?.publicGroupList) ? {
       title: page.config?.title,
-      monitors: page.publicGroupList.flatMap((group) => group.monitorList.map((monitor) => ({
+      monitors: page.publicGroupList.flatMap((group) => (Array.isArray(group?.monitorList) ? group.monitorList : []).map((monitor) => ({
         id: monitor.id, name: monitor.name, group: group.name,
         status: heartbeat?.heartbeatList?.[monitor.id]?.at(-1)?.status,
         ping: heartbeat?.heartbeatList?.[monitor.id]?.at(-1)?.ping,
@@ -104,7 +111,8 @@ export function readServiceDetails(sections) {
 }
 
 function parsePromTargets(activeTargets) {
-  const targets = activeTargets.map((target) => ({
+  if (!Array.isArray(activeTargets)) return { up: 0, down: 0, other: 0, targets: [] };
+  const targets = activeTargets.filter((t) => t && t.labels).map((target) => ({
     job: target.labels.job,
     instance: target.labels.instance,
     health: target.health,

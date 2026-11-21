@@ -5,7 +5,7 @@ import { listSshAliases } from "./host/ssh-config.js";
 
 export { buildSnapshot, collectSnapshot, parseSections } from "./host/collector.js";
 
-export const name = "server-monitor";
+export const name = "server-pulse";
 export const inject = ["webServer"];
 
 function isLoopbackRequest(request) {
@@ -102,7 +102,7 @@ function makeRoutes(cfg) {
   return [
     {
       kind: "exact",
-      path: "/api/server-monitor/snapshot",
+      path: "/api/server-pulse/snapshot",
       handler: async (req, res) => {
         if (!guard(req, res)) return;
         try {
@@ -114,7 +114,7 @@ function makeRoutes(cfg) {
     },
     {
       kind: "exact",
-      path: "/api/server-monitor/connection",
+      path: "/api/server-pulse/connection",
       handler: async (req, res) => {
         if (!guard(req, res)) return;
         const id = new URL(req.url, "http://localhost").searchParams.get("target");
@@ -131,18 +131,22 @@ function makeRoutes(cfg) {
     },
     {
       kind: "exact",
-      path: "/api/server-monitor/ssh-hosts",
+      path: "/api/server-pulse/ssh-hosts",
       handler: (req, res) => {
         if (!guard(req, res)) return;
-        writeJson(res, 200, {
-          aliases: listSshAliases(),
-          monitored: targets.filter((target) => target.sshHost).map((target) => target.sshHost),
-        });
+        try {
+          writeJson(res, 200, {
+            aliases: listSshAliases(),
+            monitored: targets.filter((target) => target.sshHost).map((target) => target.sshHost),
+          });
+        } catch (error) {
+          writeJson(res, 200, { aliases: [], monitored: [], error: error instanceof Error ? error.message : String(error) });
+        }
       },
     },
     {
       kind: "exact",
-      path: "/api/server-monitor/health",
+      path: "/api/server-pulse/health",
       handler: (req, res) => {
         if (!guard(req, res)) return;
         writeJson(res, 200, { ok: true, targets: cfg.targets.length, intervalMs: cfg.intervalMs });
@@ -157,5 +161,5 @@ export function apply(ctx, rawConfig) {
   ctx.effect(() => {
     const disposers = routes.map((route) => ctx.webServer.register(route));
     return () => { for (const dispose of disposers.splice(0)) dispose(); };
-  }, "server-monitor: routes");
+  }, "server-pulse: routes");
 }

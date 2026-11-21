@@ -1,0 +1,59 @@
+name: Release
+
+# 推送 v* 标签时触发：校验、打包、生成校验和、发布 GitHub Release，可选发布到 npm。
+# Triggered by v* tags: verify, pack, checksum, publish a GitHub Release, and optionally publish to npm.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    # GitHub 官方建议：不要在 if: 中直接引用 secrets，先提升为 job 级环境变量再判断。
+    # Official guidance: secrets cannot be referenced directly in if:; expose it as a job-level env var first.
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Check syntax
+        run: npm run check
+
+      - name: Run tests
+        run: npm test
+
+      - name: Pack tarball
+        id: pack
+        run: |
+          npm pack
+          echo "tarball=$(ls *.tgz)" >> "$GITHUB_OUTPUT"
+
+      - name: Generate SHA256SUMS.txt
+        run: sha256sum *.tgz > SHA256SUMS.txt
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: CHANGELOG.md
+          files: |
+            *.tgz
+            SHA256SUMS.txt
+          generate_release_notes: true
+
+      - name: Publish to npm (only when NPM_TOKEN is set)
+        if: env.NPM_TOKEN != ''
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          printf '//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}\n' > .npmrc
+          npm publish --access public
